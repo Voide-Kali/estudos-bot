@@ -59,6 +59,10 @@ class BotStats:
 stats = BotStats()
 
 
+def safe_file_name(value: str | None) -> str:
+    return value or "documento.pdf"
+
+
 def permitted(update: Update) -> bool:
     chat = update.effective_chat
     if not chat:
@@ -226,8 +230,15 @@ async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return await reject(update)
     chat_id = str(update.effective_chat.id)
     document = update.message.document
-    if not document.file_name.lower().endswith(".pdf"):
+    file_name = safe_file_name(document.file_name)
+    if not file_name.lower().endswith(".pdf"):
         await update.message.reply_text("Envie um arquivo no formato PDF.")
+        return
+    file_size = document.file_size or 0
+    if file_size > config.MAX_PDF_MB * 1024**2:
+        await update.message.reply_text(
+            f"O PDF excede o limite de {config.MAX_PDF_MB} MB."
+        )
         return
 
     progress = await update.message.reply_text(
@@ -264,15 +275,16 @@ async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         )
         return
 
+    text = text[: config.MAX_DOCUMENT_CHARS]
     document_texts[chat_id] = text
-    document_names[chat_id] = document.file_name
+    document_names[chat_id] = file_name
     stats.pdfs += 1
-    pages = getattr(document, "file_size", 0) / (1024**2)
+    size_mb = file_size / (1024**2)
     await progress.edit_text(
         "<b>✅ DOCUMENTO PRONTO</b>\n\n"
-        f"📄 <b>Arquivo:</b> {html.escape(document.file_name)}\n"
+        f"📄 <b>Arquivo:</b> {html.escape(file_name)}\n"
         f"📝 <b>Palavras:</b> {len(text.split()):,}\n"
-        f"💾 <b>Tamanho:</b> {pages:.1f} MB\n\n"
+        f"💾 <b>Tamanho:</b> {size_mb:.1f} MB\n\n"
         "Escolha o material que deseja gerar:",
         parse_mode=ParseMode.HTML,
         reply_markup=document_keyboard(),
@@ -325,7 +337,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     {"role": "assistant", "content": answer},
                 ]
             )
-            histories[chat_id] = history[-20:]
+            histories[chat_id] = history[-config.MAX_HISTORY_MESSAGES :]
             stats.questions += 1
             await send_long(update.message, "💬 RESPOSTA", answer)
         except Exception:
@@ -337,7 +349,6 @@ async def generate_content(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     if not query or not permitted(update):
         return await reject(update)
-    await query.answer()
     chat_id = str(update.effective_chat.id)
     text = document_texts.get(chat_id)
     if not text:
@@ -352,12 +363,19 @@ async def generate_content(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if lock.locked():
         await query.answer("Já existe uma geração em andamento.", show_alert=True)
         return
+    await query.answer()
 
     labels = {
         "summary": ("📝 RESUMO", gerar_resumo),
         "questions": ("❓ QUESTÕES", gerar_questoes),
         "flashcards": ("🧠 FLASHCARDS", gerar_flashcards),
     }
+    if action != "all" and action not in labels:
+        await query.edit_message_text(
+            "Ação inválida. Abra o painel novamente.",
+            reply_markup=main_keyboard(),
+        )
+        return
     await query.edit_message_text(
         "<b>✨ GERANDO MATERIAL...</b>\n\n"
         "A IA está preparando o conteúdo. Você pode continuar usando outros bots.",
@@ -453,7 +471,10 @@ def main() -> None:
     application.add_handler(CallbackQueryHandler(handle_callback))
     application.add_error_handler(handle_error)
     logger.info("Central de estudos iniciada")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        bootstrap_retries=-1,
+    )
 
 
 if __name__ == "__main__":

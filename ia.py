@@ -22,13 +22,18 @@ def _missing_key_msg() -> str:
     )
 
 
-def _gemini_text(prompt: str, max_tokens: int, temperature: float) -> str:
+def _gemini_text(
+    prompt: str,
+    max_tokens: int,
+    temperature: float,
+    model: str,
+) -> str:
     from google import genai
     from google.genai import types
 
     client = genai.Client(api_key=config.GEMINI_API_KEY)
     response = client.models.generate_content(
-        model=config.GEMINI_MODEL,
+        model=model,
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=max_tokens,
@@ -61,13 +66,29 @@ def chamar_ia(prompt: str, max_tokens: int = 1500, temperature: float = 0.4) -> 
     provider = config.active_ai_provider()
     if provider == "indisponivel":
         return _missing_key_msg()
-    try:
-        if provider == "gemini":
-            return _gemini_text(prompt, max_tokens, temperature)
-        return _groq_text(prompt, max_tokens, temperature)
-    except Exception as exc:
-        logger.error("Erro no provedor %s: %s", provider, exc)
-        return "A IA está temporariamente indisponível. Tente novamente em alguns instantes."
+
+    providers = [provider]
+    fallback = config.fallback_ai_provider(provider)
+    if fallback:
+        providers.append(fallback)
+
+    for current in providers:
+        if current == "gemini":
+            models = [config.GEMINI_MODEL]
+            if config.GEMINI_FALLBACK_MODEL not in models:
+                models.append(config.GEMINI_FALLBACK_MODEL)
+            for model in models:
+                try:
+                    return _gemini_text(prompt, max_tokens, temperature, model)
+                except Exception as exc:
+                    logger.warning("Erro no modelo Gemini %s: %s", model, exc)
+            continue
+        try:
+            return _groq_text(prompt, max_tokens, temperature)
+        except Exception as exc:
+            logger.warning("Erro no provedor %s: %s", current, exc)
+
+    return "A IA está temporariamente indisponível. Tente novamente em alguns instantes."
 
 
 def chamar_groq(prompt: str, max_tokens: int = 1500) -> str:

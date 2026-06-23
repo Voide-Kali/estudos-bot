@@ -12,7 +12,6 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-cp config.example.py config.py
 ```
 
 Edite o `.env`, preencha `TELEGRAM_TOKEN` e escolha pelo menos um provedor:
@@ -21,6 +20,8 @@ Edite o `.env`, preencha `TELEGRAM_TOKEN` e escolha pelo menos um provedor:
 - `GROQ_API_KEY` para Groq.
 
 Use `AI_PROVIDER=auto` para preferir Gemini e usar Groq como alternativa.
+Quando o modelo Gemini principal estiver indisponível, o bot tenta
+`GEMINI_FALLBACK_MODEL` automaticamente.
 Defina `ALLOWED_CHAT_IDS` para restringir o acesso.
 
 ## Rodar
@@ -29,6 +30,14 @@ Defina `ALLOWED_CHAT_IDS` para restringir o acesso.
 cd estudos-bot
 . .venv/bin/activate
 python3 main.py
+```
+
+## Serviço systemd
+
+```bash
+sudo install -m 0644 systemd/estudos-bot.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now estudos-bot.service
 ```
 
 ## Pegar seu chat_id (pra whitelist)
