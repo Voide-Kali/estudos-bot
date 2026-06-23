@@ -1,4 +1,5 @@
 config.py
+.env
 temp_pdfs/
 __pycache__/
 *.pyc
