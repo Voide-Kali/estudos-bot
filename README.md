@@ -56,3 +56,9 @@ estudos-bot/
 ├── systemd/
 └── README.md
 ```
+
+## Governança
+
+- [LICENSE](LICENSE)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CHANGELOG.md](CHANGELOG.md)
