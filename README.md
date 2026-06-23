@@ -1,9 +1,16 @@
-# Central de Estudos (Telegram)
+# Central de Estudos
 
-Assistente de estudos com painel interativo, suporte a PDF, imagens, chat,
-resumos, questões e flashcards. Usa Gemini ou Groq.
+Bot do Telegram para estudo guiado com suporte a PDF, imagens, chat, resumos, questões e flashcards. Usa Gemini ou Groq.
 
-## Instalação (Kali/Linux)
+## Componentes
+
+- `main.py`: fluxo principal do bot
+- `ia.py`: integração com modelos de IA
+- `pdf_utils.py`: leitura e preparação de PDF
+- `config.py` e `config.example.py`: configuração local
+- `systemd/estudos-bot.service`: execução como serviço
+
+## Instalação
 
 ```bash
 git clone https://github.com/Voide-Kali/estudos-bot.git
@@ -12,22 +19,19 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+cp config.example.py config.py
 ```
 
-Edite o `.env`, preencha `TELEGRAM_TOKEN` e escolha pelo menos um provedor:
+## Configuração
 
-- `GEMINI_API_KEY` para Gemini;
-- `GROQ_API_KEY` para Groq.
+- preencha `TELEGRAM_TOKEN`;
+- escolha pelo menos um provedor entre `GEMINI_API_KEY` e `GROQ_API_KEY`;
+- use `AI_PROVIDER=auto` para preferir Gemini e cair para Groq se precisar;
+- ajuste `ALLOWED_CHAT_IDS` para restringir o acesso.
 
-Use `AI_PROVIDER=auto` para preferir Gemini e usar Groq como alternativa.
-Quando o modelo Gemini principal estiver indisponível, o bot tenta
-`GEMINI_FALLBACK_MODEL` automaticamente.
-Defina `ALLOWED_CHAT_IDS` para restringir o acesso.
-
-## Rodar
+## Execução
 
 ```bash
-cd estudos-bot
 . .venv/bin/activate
 python3 main.py
 ```
@@ -40,8 +44,15 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now estudos-bot.service
 ```
 
-## Pegar seu chat_id (pra whitelist)
+## Estrutura
 
-1) Inicie o bot e mande `/start` pra ele no Telegram.
-2. Use o comando `/chatid`.
-3. Coloque o valor retornado em `ALLOWED_CHAT_IDS`.
+```text
+estudos-bot/
+├── main.py
+├── ia.py
+├── pdf_utils.py
+├── config.py
+├── config.example.py
+├── systemd/
+└── README.md
+```
